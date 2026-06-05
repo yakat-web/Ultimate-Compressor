@@ -8,10 +8,11 @@
 [Setup]
 AppId={{C1A8A331-B6E7-4E8F-8E5A-A7E08249F278}}
 AppName=Ultimate Image Compressor
-AppVersion=1.4.0
+AppVersion=2.0.0
 AppPublisher=Pro-Coder-Boy
-PrivilegesRequired=admin
-DefaultDirName={autopf}\UltimateImageCompressor
+; Fix Issue #12: No admin needed — install per-user
+PrivilegesRequired=lowest
+DefaultDirName={localappdata}\UltimateImageCompressor
 DefaultGroupName=Ultimate Image Compressor
 DisableProgramGroupPage=yes
 ArchitecturesAllowed=x64
@@ -20,7 +21,7 @@ SolidCompression=yes
 WizardStyle=modern
 ; Use the defined AppRoot to create absolute paths
 OutputDir={#AppRoot}\InstallerOutput
-OutputBaseFilename=Setup-ImageCompressor-v1.4.0
+OutputBaseFilename=Setup-ImageCompressor-v2.0.0
 SetupIconFile={#AppRoot}\icon.ico
 
 [Languages]
@@ -43,13 +44,14 @@ Name: "{userappdata}\Microsoft\Windows\SendTo\Image Compressor"; Filename: "{app
 [Run]
 Filename: "{app}\compressor.exe"; Description: "{cm:LaunchProgram,Ultimate Image Compressor}"; Flags: nowait postinstall skipifsilent
 
+; Fix Issue #12: Use HKCU instead of HKCR — no admin required
 [Registry]
-Root: HKCR; Subkey: "Applications\compressor.exe"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "Applications\compressor.exe\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\compressor.exe"" --shift ""%1"""
-Root: HKCR; Subkey: ".jpeg\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
-Root: HKCR; Subkey: ".jpg\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
-Root: HKCR; Subkey: ".png\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
-Root: HKCR; Subkey: ".webp\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
-Root: HKCR; Subkey: "ImageCompressor.File"; Flags: uninsdeletekey
-Root: HKCR; Subkey: "ImageCompressor.File\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\compressor.exe,0"
-Root: HKCR; Subkey: "ImageCompressor.File\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\compressor.exe"" --shift ""%1"""
+Root: HKCU; Subkey: "Software\Classes\Applications\compressor.exe"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\Applications\compressor.exe\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\compressor.exe"" --shift ""%1"""
+Root: HKCU; Subkey: "Software\Classes\.jpeg\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\.jpg\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\.png\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\.webp\OpenWithProgids"; ValueType: string; ValueName: "ImageCompressor.File"; Flags: uninsdeletevalue
+Root: HKCU; Subkey: "Software\Classes\ImageCompressor.File"; Flags: uninsdeletekey
+Root: HKCU; Subkey: "Software\Classes\ImageCompressor.File\DefaultIcon"; ValueType: string; ValueName: ""; ValueData: "{app}\compressor.exe,0"
+Root: HKCU; Subkey: "Software\Classes\ImageCompressor.File\shell\open\command"; ValueType: string; ValueName: ""; ValueData: """{app}\compressor.exe"" --shift ""%1"""
