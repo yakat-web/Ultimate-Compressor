@@ -12,3 +12,6 @@ compressor_log.txt
 
 # Installer Output
 /InstallerOutput/
+
+# Release output (fixes Issue #23)
+/RELEASE/
