@@ -94,9 +94,10 @@ class UltimateCompressorGUI(ctk.CTk if ctk else tk.Tk):  # type: ignore[misc]
 
     PREVIEW_SIZE = 260
 
-    def __init__(self, files: list[str] | tuple[str, ...] = ()) -> None:
+    def __init__(self, files: list[str] | tuple[str, ...] = (), auto_start: bool = False) -> None:
         super().__init__()
-        self.files: list[str] = list(files)
+        self.files: list[str] = []
+        self._auto_start = auto_start
         self.processor = ImageProcessor(status_callback=self._safe_update_status)
         self.original_dims: dict[str, tuple[int, int]] = {}
         self._after_id: Optional[str] = None
@@ -169,12 +170,81 @@ class UltimateCompressorGUI(ctk.CTk if ctk else tk.Tk):  # type: ignore[misc]
         self._create_custom_menu_bar()
         self._create_widgets()
 
-        if self.files:
+        if files:
+            self._scan_paths_async(files, auto_start=self._auto_start)
+            
+    def _scan_paths_async(self, paths: list[str] | tuple[str, ...], auto_start: bool = False) -> None:
+        if ctk is not None:
+            self.compress_button.configure(state="disabled")
+        
+        scan_msg = "درحال اسکن مسیرها..." if CURRENT_LANGUAGE == "fa" else "Scanning paths..."
+        self.status_lbl.config(text=scan_msg)
+        
+        thread = threading.Thread(target=self._scan_thread_worker, args=(paths, auto_start), daemon=True)
+        thread.start()
+
+    def _scan_thread_worker(self, paths: list[str] | tuple[str, ...], auto_start: bool) -> None:
+        found = []
+        
+        def update_status():
+            msg = f"درحال اسکن... ({len(found)} فایل یافت شد)" if CURRENT_LANGUAGE == "fa" else f"Scanning... ({len(found)} found)"
+            self.status_lbl.config(text=msg)
+
+        last_update = time.time()
+
+        for path in paths:
+            if os.path.isfile(path):
+                ext = os.path.splitext(path)[1].lower()
+                if ext in SUPPORTED_IMAGE_EXTENSIONS:
+                    found.append(path)
+            elif os.path.isdir(path):
+                for root, _, files in os.walk(path):
+                    for f in files:
+                        ext = os.path.splitext(f)[1].lower()
+                        if ext in SUPPORTED_IMAGE_EXTENSIONS:
+                            found.append(os.path.join(root, f))
+                            
+                            # Update UI periodically (every 0.2s)
+                            if time.time() - last_update > 0.2:
+                                self.after(0, update_status)
+                                last_update = time.time()
+
+        found = sorted(list(set(found)))
+        self.after(0, self._finish_scan, found, auto_start)
+
+    def _finish_scan(self, found_files: list[str], auto_start: bool) -> None:
+        if not found_files:
+            msg = "هیچ تصویری در مسیرهای انتخاب شده یافت نشد." if CURRENT_LANGUAGE == "fa" else "No supported images found in the selected paths."
+            self.status_lbl.config(text=msg)
+            if ctk is not None:
+                self.compress_button.configure(state="normal")
+            return
+            
+        self.status_lbl.config(text="در حال بارگذاری در لیست..." if CURRENT_LANGUAGE == "fa" else "Loading into list...")
+        
+        existing = set(self.files)
+        new_files = [f for f in found_files if f not in existing]
+        
+        if new_files:
+            self.files.extend(new_files)
+            # Insert in chunks of 5000 to prevent Tkinter from freezing
+            basenames = [os.path.basename(f) for f in new_files]
+            chunk_size = 5000
+            for i in range(0, len(basenames), chunk_size):
+                self.file_listbox.insert(tk.END, *basenames[i:i+chunk_size])
+        
+        self.count_lbl.config(text=STRINGS["files_found"].format(count=len(self.files)))
+        self.status_lbl.config(text=STRINGS["status_ready"])
+        
+        if self.files and not self._preview_pil:
             self.file_listbox.selection_set(0)
             self._on_file_select(None)
             
-        self.after(100, self._toggle_panels)
-        self.after(200, self._check_crash_state)
+        if ctk is not None:
+            self.compress_button.configure(state="normal")
+            
+        if auto_start and self.files:
+            self.after(300, self._start_compression)
 
     def _check_crash_state(self) -> None:
         crashed_files = load_crash_state()
@@ -986,22 +1056,17 @@ class UltimateCompressorGUI(ctk.CTk if ctk else tk.Tk):  # type: ignore[misc]
         directory = filedialog.askdirectory(parent=self, title=STRINGS["add_folder_button"])
         if not directory:
             return
-        found: list[str] = []
-        for ext in SUPPORTED_IMAGE_EXTENSIONS:
-            found.extend(str(p) for p in pathlib.Path(directory).rglob(f"*{ext}") if p.is_file())
-            found.extend(str(p) for p in pathlib.Path(directory).rglob(f"*{ext.upper()}") if p.is_file() and str(p) not in found)
-        if found:
-            self._append_files(sorted(set(found)))
-        else:
-            msg = f"No supported images found in:\n{directory}" if CURRENT_LANGUAGE == "en" else f"هیچ تصویری در این پوشه یافت نشد:\n{directory}"
-            self._custom_messagebox("No Images Found", msg, color="#dc2626")
+        self._scan_paths_async([directory], auto_start=False)
 
     def _append_files(self, new_files: list[str]) -> None:
         existing = set(self.files)
-        for f in new_files:
-            if f not in existing:
-                self.files.append(f)
-                self.file_listbox.insert(tk.END, os.path.basename(f))
+        to_add = [f for f in new_files if f not in existing]
+        if to_add:
+            self.files.extend(to_add)
+            basenames = [os.path.basename(f) for f in to_add]
+            chunk_size = 5000
+            for i in range(0, len(basenames), chunk_size):
+                self.file_listbox.insert(tk.END, *basenames[i:i+chunk_size])
         self.count_lbl.config(text=STRINGS["files_found"].format(count=len(self.files)))
 
     def _remove_selected(self) -> None:

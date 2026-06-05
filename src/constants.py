@@ -14,7 +14,7 @@ except ImportError:
 _config = load_config()
 
 # --- Version (single source of truth — fixes Issue #24) ---
-VERSION: str = "2.0.0"
+VERSION: str = "2.0.1"
 
 # --- Supported file extensions ---
 SUPPORTED_IMAGE_EXTENSIONS: set[str] = {
